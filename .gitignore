@@ -1,0 +1,17 @@
+# ключі підпису — ніколи в репо
+*.jks
+*.keystore
+*signing.properties
+local.properties
+# знімок каталогу — у гілці data/catalog, у APK підкладає CI / пункт 11
+android/app/src/main/assets/catalog/
+# збірка
+.gradle/
+build/
+android/.gradle/
+android/app/build/
+*.iml
+.idea/
+__pycache__/
+site-probe/
+out/

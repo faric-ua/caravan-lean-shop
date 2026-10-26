@@ -1,0 +1,49 @@
+name: Site probe
+
+# Розвідка сайту магазину (scripts/site_probe.py): сирі сторінки + report.md → гілка diag/site-probe.
+# Потрібна, бо в середовищі Claude сайт недоступний (блок «ботів» і закритий інтернет).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/site_probe.py"
+      - "scripts/site_fetch.py"
+      - ".github/workflows/site-probe.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: site-probe
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          pip install -q -r scripts/requirements.txt
+          python -m playwright install --with-deps chromium >/dev/null
+      - name: Probe
+        run: |
+          set -o pipefail
+          python3 scripts/site_probe.py site-probe | tee probe.log
+          head -c 3000 site-probe/report.md | tr '\n' ' ' | sed 's/^/::notice title=SITE_PROBE::/'; echo
+      - name: Save to diag/site-probe
+        run: |
+          set -euo pipefail
+          cd site-probe
+          git init -q -b diag/site-probe
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "site probe $(date -u +%Y-%m-%dT%H:%MZ) from ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" diag/site-probe
+          echo "::notice title=SITE_PROBE_SAVED::гілка diag/site-probe"

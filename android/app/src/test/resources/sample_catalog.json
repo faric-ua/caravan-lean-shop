@@ -1,0 +1,78 @@
+{
+ "schema": 1,
+ "source": "https://shop.caravan-lean.com.ua",
+ "scrapedAt": "2026-10-27T00:00:00Z",
+ "currency": "UAH",
+ "categories": [
+  {
+   "id": "d2347392c630",
+   "name": "Меблі",
+   "url": "https://shop.caravan-lean.com.ua/mebli/",
+   "parentId": null,
+   "image": "https://shop.caravan-lean.com.ua/img/chair.webp",
+   "productCount": 1,
+   "order": 0
+  },
+  {
+   "id": "c065bd95f1a2",
+   "name": "Кемпінг",
+   "url": "https://shop.caravan-lean.com.ua/kemping/",
+   "parentId": null,
+   "image": "https://shop.caravan-lean.com.ua/img/tent.jpg",
+   "productCount": 1,
+   "order": 1
+  },
+  {
+   "id": "ce76afde714e",
+   "name": "Тенти",
+   "url": "https://shop.caravan-lean.com.ua/kemping/tenty/",
+   "parentId": "c065bd95f1a2",
+   "image": "https://shop.caravan-lean.com.ua/img/tent.jpg",
+   "productCount": 1,
+   "order": 2
+  }
+ ],
+ "products": [
+  {
+   "url": "https://shop.caravan-lean.com.ua/kemping/tenty/tent-3x4/",
+   "name": "Тент Caravan 3x4",
+   "sku": "CL-334",
+   "brand": "Caravan",
+   "description": "Міцний & легкий тент",
+   "price": 2499.0,
+   "currency": "UAH",
+   "available": true,
+   "images": [
+    "https://shop.caravan-lean.com.ua/img/tent.jpg",
+    "https://shop.caravan-lean.com.ua/img/tent2.jpg"
+   ],
+   "oldPrice": 2999.0,
+   "attributes": [
+    {
+     "name": "Розмір",
+     "value": "3×4 м"
+    },
+    {
+     "name": "Вага",
+     "value": "1,2 кг"
+    }
+   ],
+   "id": "c0f699010952",
+   "categoryId": "ce76afde714e"
+  },
+  {
+   "url": "https://shop.caravan-lean.com.ua/mebli/stilets/",
+   "name": "Стілець складаний",
+   "price": 850.0,
+   "currency": "UAH",
+   "images": [
+    "https://shop.caravan-lean.com.ua/img/chair.webp"
+   ],
+   "description": "Легкий стілець",
+   "oldPrice": null,
+   "attributes": [],
+   "id": "23859867d4e3",
+   "categoryId": "d2347392c630"
+  }
+ ]
+}

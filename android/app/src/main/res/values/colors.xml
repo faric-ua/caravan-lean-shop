@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Лише для ресурсів Android (значок, тема вікна). Кольори інтерфейсу — ui/Palette.kt. -->
+<resources>
+    <color name="launcher_bg">#FF2F6B4F</color>
+    <color name="window_bg">#FFF5F3EE</color>
+</resources>
