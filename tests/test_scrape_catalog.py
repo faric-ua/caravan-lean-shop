@@ -62,3 +62,42 @@ class ProductTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VirtueMartTest(unittest.TestCase):
+    """Справжня сторінка товару shop.caravan-lean.com.ua (знята розвідкою 27.10)."""
+
+    def test_product(self):
+        soup = BeautifulSoup((FIX / "vm_product.html").read_text(encoding="utf-8"), "lxml")
+        p = sc.parse_vm_product("https://shop.caravan-lean.com.ua/home/oborud/322617-detail.html", soup)
+        self.assertEqual(p["name"], "Оконный упор")
+        self.assertEqual(p["sku"], "322617")
+        self.assertEqual(p["price"], 1421.0)
+        self.assertEqual(len(p["images"]), 2)
+        self.assertTrue(p["images"][0].startswith("https://shop.caravan-lean.com.ua/images/stories/virtuemart/product/"))
+        self.assertIn("135", p["description"])
+        self.assertTrue(p["available"])
+
+    def test_paths(self):
+        self.assertEqual(sc.cat_key("https://shop.caravan-lean.com.ua/home/woda.html"), "/home/woda")
+        self.assertEqual(sc.cat_key("https://shop.caravan-lean.com.ua/home/woda/results,21-40.html"), "/home/woda")
+        self.assertTrue(sc.is_product_url("https://shop.caravan-lean.com.ua/home/woda/9970900-detail.html"))
+        self.assertFalse(sc.is_product_url("https://shop.caravan-lean.com.ua/home/woda.html"))
+
+    def test_build_tree(self):
+        cats = {
+            "/home/woda": {"name": "Вода", "url": "https://shop.caravan-lean.com.ua/home/woda.html", "parent": None, "image": None, "order": 0},
+            "/home/woda/nasosy": {"name": "Насосы", "url": "https://shop.caravan-lean.com.ua/home/woda/nasosy.html", "parent": "/home/woda", "image": None, "order": 1},
+        }
+        prods = {
+            "https://shop.caravan-lean.com.ua/home/woda/nasosy/1-detail.html": {"url": "https://shop.caravan-lean.com.ua/home/woda/nasosy/1-detail.html", "name": "Насос", "images": ["https://x/1.jpg"], "_cat": "/home/woda/nasosy", "crumbs": []},
+            "https://shop.caravan-lean.com.ua/home/woda/2-detail.html": {"url": "https://shop.caravan-lean.com.ua/home/woda/2-detail.html", "name": "Душ", "images": [], "_cat": "/home/woda", "crumbs": []},
+        }
+        cat = sc.build_virtuemart(cats, prods)
+        by = {c["name"]: c for c in cat["categories"]}
+        self.assertEqual(by["Насосы"]["parentId"], by["Вода"]["id"])
+        self.assertEqual(by["Вода"]["productCount"], 2)
+        self.assertEqual(by["Насосы"]["image"], "https://x/1.jpg")
+        pump = next(p for p in cat["products"] if p["name"] == "Насос")
+        self.assertEqual(pump["categoryId"], by["Насосы"]["id"])
+        self.assertNotIn("_cat", pump)

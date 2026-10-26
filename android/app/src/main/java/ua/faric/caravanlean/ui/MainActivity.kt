@@ -51,7 +51,7 @@ class MainActivity : Activity() {
     private lateinit var topBar: LinearLayout
     private lateinit var bottomBar: LinearLayout
     private lateinit var toastView: TextView
-    private val tabViews = HashMap<Tab, Pair<View, TextView>>()
+    private val tabViews = HashMap<Tab, Pair<android.widget.ImageView, TextView>>()
     private lateinit var cartBadge: TextView
 
     private val stacks = HashMap<Tab, MutableList<Screen>>()
