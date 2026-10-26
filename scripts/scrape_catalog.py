@@ -332,6 +332,218 @@ def build(products: dict, cat_pages: dict, order: list) -> dict:
     }
 
 
+# ---------- VirtueMart (Joomla) — shop.caravan-lean.com.ua ----------
+# ЧПУ-адреси: група /home/woda.html → підгрупа /home/woda/sub.html → товар /home/woda/123-detail.html.
+# Тобто шлях адреси і є деревом груп. Schema.org-розмітки нема — читаємо HTML шаблону VirtueMart.
+
+def is_virtuemart(html: str) -> bool:
+    return "com_virtuemart" in html or "VMmenu" in html or "virtuemart" in html.lower()
+
+
+def cat_key(url: str) -> str:
+    """/home/woda.html → /home/woda ; /home/woda/results,21-40.html → /home/woda."""
+    path = urlparse(url).path
+    path = re.sub(r"/results,\d+-\d+\.html$", "", path)
+    return re.sub(r"\.html$", "", path).rstrip("/")
+
+
+def is_product_url(url: str) -> bool:
+    return bool(re.search(r"-detail\.html$", urlparse(url).path))
+
+
+def vm_price(el) -> float | None:
+    return to_price(el.get_text(" ")) if el else None
+
+
+def parse_vm_product(url: str, soup: BeautifulSoup):
+    box = soup.select_one(".productdetails-view")
+    if not box:
+        return None
+    h1 = box.find("h1")
+    name = clean(h1.get_text(" ")) if h1 else ""
+    if not name:
+        return None
+    sku = ""
+    h4 = box.find("h4")
+    if h4:
+        m = re.search(r"Артикул\s*:?\s*([^\s<]+)", h4.get_text(" "))
+        sku = m.group(1) if m else ""
+    price = vm_price(box.select_one("span.PricesalesPrice") or box.select_one(".PricesalesPrice"))
+    old = None
+    for sel in ("span.PricebasePriceWithTax", "span.PricebasePrice", ".price-crossed span", "span.PricediscountedPriceWithoutTax"):
+        v = vm_price(box.select_one(sel))
+        if v and price and v > price:
+            old = v
+            break
+    imgs = []
+    for a in box.select(".main-image a[href], .additional-images a[href]"):
+        imgs.append(norm_url(a["href"]))
+    for im in box.select(".main-image img[src], .additional-images img[src], img.product-image[src]"):
+        imgs.append(norm_url(im["src"]))
+    imgs = [i for i in OrderedDict.fromkeys(imgs) if re.search(r"\.(jpe?g|png|webp|gif)$", i, re.I) and "noimage" not in i]
+    # прибрати зменшені копії, якщо є оригінал
+    full = [i for i in imgs if "/resized/" not in i]
+    imgs = full or imgs
+    short = clean(box.select_one(".product-short-description").get_text(" ")) if box.select_one(".product-short-description") else ""
+    desc_el = box.select_one(".product-description")
+    desc = ""
+    if desc_el:
+        t = desc_el.select_one(".title")
+        if t:
+            t.decompose()
+        desc = clean(desc_el.get_text(" "))
+    description = (short + ("\n\n" if short and desc and desc != short else "") + (desc if desc != short else "")).strip()
+    attrs = []
+    for f in box.select(".product-fields .product-field, .product-field"):
+        t = f.select_one(".product-fields-title, .product-field-title")
+        v = f.select_one(".product-field-display")
+        if t and v and clean(t.get_text(" ")) and clean(v.get_text(" ")):
+            attrs.append({"name": clean(t.get_text(" ")).rstrip(":"), "value": clean(v.get_text(" "))[:300]})
+    manuf = box.select_one(".manufacturer a, .manufacturer")
+    btn = box.select_one("input.addtocart-button, .addtocart-button input, a.notify, .notify")
+    btxt = ((btn.get("value") or btn.get_text(" ")) if btn else "").lower()
+    if btn is None:
+        available = None
+    else:
+        available = not any(w in btxt for w in ("уведом", "notify", "повідом", "нет в нал"))
+    if re.search(r"нет в наличии|немає в наявності|out of stock", box.get_text(" "), re.I):
+        available = False
+    return {
+        "url": url, "name": name, "sku": sku, "brand": clean(manuf.get_text(" ")).replace("Производитель:", "").strip() if manuf else "",
+        "description": description[:4000], "price": price, "oldPrice": old, "currency": "UAH",
+        "available": available, "images": imgs[:12], "attributes": attrs[:40], "crumbs": [],
+    }
+
+
+def crawl_virtuemart(f: Fetcher, home_soup: BeautifulSoup, max_pages: int, log: list):
+    cats: "OrderedDict[str, dict]" = OrderedDict()  # cat_key → {name,url,parent,image,order}
+    home_imgs = {}
+    for tile in home_soup.select(".category"):
+        a = tile.find("a", href=True)
+        im = tile.find("img")
+        if a and im:
+            home_imgs[cat_key(norm_url(a["href"]))] = norm_url(im["src"])
+    for i, a in enumerate(home_soup.select(".VMmenu a[href]")):
+        u = norm_url(a["href"])
+        k = cat_key(u)
+        cats.setdefault(k, {"name": clean(a.get_text(" ")), "url": u, "parent": None, "image": home_imgs.get(k), "order": i})
+    log.append(f"VirtueMart: груп у меню {len(cats)}")
+
+    # одразу по 200 товарів на сторінку (VirtueMart: results,1-200.html) — менше запитів до сайту
+    def big_page(u: str) -> str:
+        return re.sub(r"\.html$", "/results,1-200.html", u)
+
+    queue = deque(big_page(c["url"]) for c in cats.values())
+    seen_pages = set(queue)
+    product_urls: "OrderedDict[str, dict]" = OrderedDict()  # url → дані з плитки (запасні)
+    visited = 0
+    while queue and visited < max_pages:
+        url = queue.popleft()
+        p = f.get(url)
+        visited += 1
+        if not p.ok:
+            log.append(f"група не відкрилась: {url} ({p.status})")
+            continue
+        soup = BeautifulSoup(p.text, "lxml")
+        here = cat_key(url)
+        main = soup.select_one(".category-view, .browse-view, #content, .main-content, #main") or soup
+        # підгрупи: плитки .category з посиланням глибше за поточну групу
+        for tile in main.select(".category"):
+            a = tile.find("a", href=True)
+            if not a:
+                continue
+            u = norm_url(a["href"])
+            k = cat_key(u)
+            if k == here or is_product_url(u):
+                continue
+            im = tile.find("img")
+            if k not in cats:
+                cats[k] = {"name": clean(a.get("title") or a.get_text(" ")), "url": u, "parent": here,
+                           "image": norm_url(im["src"]) if im and im.get("src") else None, "order": len(cats)}
+            elif cats[k]["parent"] is None and k.startswith(here + "/"):
+                cats[k]["parent"] = here
+            if u not in seen_pages:
+                seen_pages.add(u)
+                queue.append(big_page(u))
+        # товари на сторінці групи
+        for a in main.select("a[href]"):
+            u = norm_url(a["href"])
+            if not is_product_url(u) or not cat_key(u).startswith(here):
+                continue
+            if u not in product_urls:
+                product_urls[u] = {"listed_in": here}
+        # пагінація групи
+        for a in soup.select("a[href]"):
+            u = norm_url(a["href"])
+            if u in seen_pages or is_product_url(u):
+                continue
+            if cat_key(u) == here and (re.search(r"results,\d+-\d+\.html$", u) or re.search(r"[?&](limitstart|start)=\d+", u)):
+                seen_pages.add(u)
+                queue.append(u)
+    log.append(f"сторінок груп: {visited}, груп: {len(cats)}, адрес товарів: {len(product_urls)}")
+
+    products = {}
+    budget = max(0, max_pages - visited)
+    for i, (u, meta) in enumerate(product_urls.items()):
+        if i >= budget:
+            log.append(f"ліміт сторінок: товарів не відкрито {len(product_urls) - i}")
+            break
+        p = f.get(u)
+        if not p.ok:
+            continue
+        prod = parse_vm_product(norm_url(p.final_url), BeautifulSoup(p.text, "lxml"))
+        if prod:
+            prod["_cat"] = meta["listed_in"]
+            products[prod["url"]] = prod
+        if (i + 1) % 100 == 0:
+            log.append(f"товарів відкрито {i + 1}, розпізнано {len(products)}")
+    return cats, products
+
+
+def build_virtuemart(cats: dict, products: dict) -> dict:
+    # найглибша відома група для кожного товару: за шляхом адреси, інакше — де знайдено
+    keys = sorted(cats, key=len, reverse=True)
+    out_products = []
+    for url, p in products.items():
+        pk = cat_key(url).rsplit("/", 1)[0]
+        cat = next((k for k in keys if pk == k or pk.startswith(k + "/")), p.pop("_cat"))
+        p.pop("_cat", None)
+        p.pop("crumbs", None)
+        p.update(id=uid(url), categoryId=uid(cats[cat]["url"]) if cat in cats else "other")
+        out_products.append(p)
+    categories = []
+    for k, c in cats.items():
+        parent = c["parent"]
+        if parent is None and "/" in k.strip("/")[len("home"):]:
+            # батько за шляхом, якщо група прийшла не з меню
+            up = k.rsplit("/", 1)[0]
+            parent = up if up in cats else None
+        categories.append({"id": uid(c["url"]), "name": c["name"] or "Без назви", "url": c["url"],
+                           "parentId": uid(cats[parent]["url"]) if parent in cats else None,
+                           "image": c["image"], "productCount": 0, "order": c["order"]})
+    by_id = {c["id"]: c for c in categories}
+    for p in out_products:
+        cid = p["categoryId"]
+        guard = set()
+        while cid in by_id and cid not in guard:
+            guard.add(cid)
+            by_id[cid]["productCount"] += 1
+            if not by_id[cid]["image"] and p.get("images"):
+                by_id[cid]["image"] = p["images"][0]
+            cid = by_id[cid]["parentId"]
+    if any(p["categoryId"] == "other" for p in out_products):
+        categories.append({"id": "other", "name": "Інше", "url": None, "parentId": None, "image": None,
+                           "productCount": sum(p["categoryId"] == "other" for p in out_products), "order": 10**6})
+    categories.sort(key=lambda c: c["order"])
+    for i, c in enumerate(categories):
+        c["order"] = i
+    return {
+        "schema": SCHEMA_VERSION, "source": BASE,
+        "scrapedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "currency": "UAH",
+        "categories": categories, "products": out_products,  # порядок товарів — як на сайті
+    }
+
+
 def summary(cat: dict) -> str:
     cs, ps = cat["categories"], cat["products"]
     top = [c for c in cs if not c["parentId"]]
@@ -353,10 +565,16 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     f, log = Fetcher(), []
     try:
-        products, cat_pages, order = crawl(f, a.max_pages, log)
+        home = f.get("/")
+        if home.ok and is_virtuemart(home.text):
+            log.append("движок: Joomla + VirtueMart")
+            cats, products = crawl_virtuemart(f, BeautifulSoup(home.text, "lxml"), a.max_pages, log)
+            cat = build_virtuemart(cats, products)
+        else:
+            products, cat_pages, order = crawl(f, a.max_pages, log)
+            cat = build(products, cat_pages, order)
     finally:
         f.close()
-    cat = build(products, cat_pages, order)
     (out / "catalog.json").write_text(json.dumps(cat, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     s = summary(cat)
     (out / "catalog-summary.txt").write_text(s + "\n", encoding="utf-8")
