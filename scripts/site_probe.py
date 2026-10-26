@@ -161,7 +161,12 @@ def main(out_dir: str) -> int:
     seg = Counter(urlparse(u).path.strip("/").split("/")[0] for u, _ in navs)
     rep.append(f"Перший сегмент шляху в меню: {seg.most_common(15)}")
 
-    rep += ["", "## Сторінки груп (перші 5 з меню)"]
+    # VirtueMart: справжні групи — у блоці VMmenu (меню вище — це сторінки сайту)
+    vm = [(urljoin(BASE + "/", a["href"]), a.get_text(" ", strip=True)) for a in soup.select(".VMmenu a[href]")]
+    if vm:
+        navs = vm + [x for x in navs if x not in vm]
+        rep.append(f"VMmenu (групи VirtueMart): {len(vm)}")
+    rep += ["", "## Сторінки груп (перші 5 з меню груп)"]
     products = []
     for i, (u, t) in enumerate(navs[:5], 1):
         p = f.get(u)
@@ -170,6 +175,20 @@ def main(out_dir: str) -> int:
         tl = tile_links(BeautifulSoup(p.text, "lxml"))
         rep.append(f"  посилань-плиток з картинкою: {len(tl)}; приклади: {tl[:8]}")
         products += [x for x in tl if x not in products]
+
+    # друга сторінка першої групи з пагінацією (як влаштована пагінація)
+    for i in range(1, 6):
+        fp = out / f"cat_{i}.html"
+        if not fp.exists():
+            continue
+        cs = BeautifulSoup(fp.read_text(encoding="utf-8"), "lxml")
+        pag = [urljoin(BASE + "/", a["href"]) for a in cs.select(".pagination a[href], .vm-pagination a[href], [class*=pagination] a[href]")]
+        if pag:
+            rep.append(f"Пагінація в групі {i}: {pag[:8]}")
+            p2 = f.get(pag[0])
+            (out / "cat_page2.html").write_text(p2.text, encoding="utf-8")
+            rep.append(page_summary("Друга сторінка групи", p2.final_url, p2.text))
+            break
 
     rep += ["", "## Сторінки товарів (перші 6 кандидатів)"]
     for i, u in enumerate(products[:6], 1):
