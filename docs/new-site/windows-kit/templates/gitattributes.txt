@@ -1,0 +1,4 @@
+# Покласти в корінь репо як .gitattributes: menu.cmd має бути з CRLF (інакше cmd.exe може плутатись)
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.psd1 text eol=crlf

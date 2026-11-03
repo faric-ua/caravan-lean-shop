@@ -56,7 +56,8 @@
 | Мережа, фото | `net/Http.kt`, `net/Images.kt` |
 | Екрани | `ui/` (`Palette.kt` — усі кольори, `Ui.kt` — усі кнопки, `Grid.kt` — плитки) |
 | Меню телефона | `menu.sh`, `tools/termux/cl-*.sh` |
-| CI | `.github/workflows/android.yml`, `checks.yml`, `site-probe.yml`, `catalog.yml` |
+| CI | `.github/workflows/android.yml`, `checks.yml`, `site-probe.yml`, `catalog.yml`, `site-stack.yml` (паспорт сайту → `diag/site-stack`) |
+| Меню Windows для нового сайту (друг faric) | `docs/new-site/windows-kit/` (тест `tests/test_windows_kit.py`); сама інструкція — лише файлом у faric (репо публічне) |
 
 ## Технічне
 

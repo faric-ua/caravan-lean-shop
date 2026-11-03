@@ -25,6 +25,16 @@ jobs:
         run: |
           set -euo pipefail
           for f in menu.sh tools/termux/*.sh scripts/*.sh "termux-widget/Caravan Lean"; do bash -n "$f"; done
+      - name: PowerShell syntax (меню Windows для нового сайту)
+        shell: pwsh
+        run: |
+          $bad = 0
+          Get-ChildItem docs/new-site/windows-kit -Recurse -Filter *.ps1 | ForEach-Object {
+            $e = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$e)
+            if ($e) { $bad++; $e | ForEach-Object { Write-Host "::error title=PowerShell::$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)" } }
+          }
+          exit $bad
       - name: UI audit
         run: python3 scripts/audit_ui.py
       - name: Repo audit
