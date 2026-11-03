@@ -1,0 +1,65 @@
+# Локальна копія нового сайту (варіант A: WordPress + WooCommerce). Покласти в корінь репо як docker-compose.yml.
+# Пункт 7 меню: docker compose up -d -> http://localhost:8080/ ; пункт 8: docker compose down (дані лишаються).
+# Версії - як на хостингу (PHP 8.3, MySQL 8.0); паролі тут лише для ЛОКАЛЬНОЇ копії, на хостингу - свої.
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wp
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: local-only
+      MYSQL_ROOT_PASSWORD: local-only-root
+    volumes:
+      - db:/var/lib/mysql
+  wordpress:
+    image: wordpress:php8.3-apache
+    restart: unless-stopped
+    depends_on: [db]
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: wp
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: local-only
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_ENVIRONMENT_TYPE', 'local');
+    volumes:
+      - wp:/var/www/html
+      - ./wp-content/themes/caravan-lean:/var/www/html/wp-content/themes/caravan-lean
+      - ./wp-content/plugins/caravan-lean-core:/var/www/html/wp-content/plugins/caravan-lean-core
+  cli:
+    image: wordpress:cli-php8.3
+    depends_on: [db, wordpress]
+    profiles: ["cli"]          # docker compose run --rm cli wp plugin list
+    user: "33:33"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: wp
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: local-only
+    volumes:
+      - wp:/var/www/html
+      - ./wp-content/themes/caravan-lean:/var/www/html/wp-content/themes/caravan-lean
+      - ./wp-content/plugins/caravan-lean-core:/var/www/html/wp-content/plugins/caravan-lean-core
+      - ./migration:/migration
+  # Етап 2: старий дамп VirtueMart (Joomla 2.5 писала дати 0000-00-00 і MyISAM - MySQL 8 у суворому режимі їх не бере).
+  # Покласти дамп *.sql або *.sql.gz у migration/input/ і запустити: docker compose --profile legacy up -d legacy-db
+  # Підключення: localhost:3307, root / local-only-root, база old. Видалити разом з даними: docker compose --profile legacy down -v
+  legacy-db:
+    image: mariadb:10.6
+    profiles: ["legacy"]
+    command: ["--sql-mode=NO_ENGINE_SUBSTITUTION", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MARIADB_ROOT_PASSWORD: local-only-root
+      MARIADB_DATABASE: old
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./migration/input:/docker-entrypoint-initdb.d:ro
+      - legacy:/var/lib/mysql
+volumes:
+  db:
+  wp:
+  legacy:

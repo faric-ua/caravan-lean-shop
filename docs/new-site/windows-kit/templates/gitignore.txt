@@ -1,0 +1,26 @@
+# Покласти в корінь репо як .gitignore
+# секрети й налаштування ноутбука - ніколи в репо
+.env
+.env.*
+*.pem
+*.key
+*.ppk
+config.psd1
+wp-config.php
+# резервні копії й дампи бази (вони на Google Диску, не в GitHub)
+*.sql
+*.sql.gz
+*.tgz
+*.zip
+backups/
+migration/input/
+migration/output/
+# дані клієнтів і вивантаження з бази можуть бути в csv/json - лише на Google Диску
+*.csv
+# медіа сайту (фото товарів) - на хостингу й на Google Диску, не в git
+wp-content/uploads/
+# службове
+node_modules/
+vendor/
+.DS_Store
+Thumbs.db

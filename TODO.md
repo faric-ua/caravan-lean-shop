@@ -11,3 +11,7 @@
 - [ ] Живе оновлення цілої групи з сайту (а не лише товару)
 - [ ] Фільтри за характеристиками (якщо на сайті є)
 - [ ] Етап 2 (`docs/PLAN.md`): сервер магазину → `RemoteJson`
+
+## Новий сайт (робить друг faric за інструкцією NEW_SITE_GUIDE.md — файл у faric)
+- [ ] Власник продовжив домен caravan-lean.com.ua
+- [ ] Етап 8 інструкції: endpoint `/wp-json/caravan-lean/v1/catalog` (формат catalog.json schema 1) → `CL_CATALOG_URL` у застосунку
