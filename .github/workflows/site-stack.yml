@@ -1,0 +1,36 @@
+name: Site stack
+
+# Паспорт сайту (scripts/site_stack.sh): движок, версії, PHP, хостинг, DNS, SSL → гілка diag/site-stack.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/site_stack.sh"
+      - ".github/workflows/site-stack.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils whois >/dev/null
+      - name: Probe
+        run: |
+          bash scripts/site_stack.sh site-stack
+          head -c 2500 site-stack/report.md | tr '\n' ' ' | sed 's/^/::notice title=SITE_STACK::/'; echo
+      - name: Save to diag/site-stack
+        run: |
+          set -euo pipefail
+          cd site-stack
+          git init -q -b diag/site-stack
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "site stack $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" diag/site-stack

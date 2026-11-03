@@ -24,7 +24,7 @@ jobs:
       - name: Shell syntax
         run: |
           set -euo pipefail
-          for f in menu.sh tools/termux/*.sh "termux-widget/Caravan Lean"; do bash -n "$f"; done
+          for f in menu.sh tools/termux/*.sh scripts/*.sh "termux-widget/Caravan Lean"; do bash -n "$f"; done
       - name: UI audit
         run: python3 scripts/audit_ui.py
       - name: Repo audit
