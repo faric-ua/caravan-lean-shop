@@ -96,10 +96,11 @@ while true; do
   echo "  7 — Ключ підпису: створити (лише на основному телефоні)"
   echo "  8 — Ключ підпису: резервна копія"
   echo "  9 — Ярлик меню на головному екрані (Termux:Widget)"
+  echo " 15 — 🔑 Покласти ключ у «Ключі» (копія, оригінал не чіпає)"
   echo
   echo "  0 — Вийти"
   echo
-  read -r -p "Вибір: " choice
+  read -r -p "Вибір: " choice || exit 0
   case "$choice" in
     1)
       clear
@@ -139,6 +140,7 @@ while true; do
       ;;
     13) run_tool cl-open-apk-folder.sh ;;
     14) run_tool cl-catalog.sh ;;
+    15) clear; bash "$TOOLS/faric-keys-put.sh" "Caravan Lean"; pause_menu ;;
     0 | q | Q) exit 0 ;;
     *) ;;
   esac
