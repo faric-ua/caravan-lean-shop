@@ -15,3 +15,11 @@ android/app/build/
 __pycache__/
 site-probe/
 out/
+
+# ключі підпису (faric-keys-put.sh)
+*.jks
+*.keystore
+*.p12
+*.age
+*-signing.properties
+Ключі/
